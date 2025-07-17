@@ -1,31 +1,27 @@
-/// <summary>
-/// A basic implementation of a Queue
-/// </summary>
+// PersonQueue.cs
+using System;
+using System.Collections.Generic;
+
 public class PersonQueue
 {
     private readonly List<Person> _queue = new();
 
     public int Length => _queue.Count;
 
-    /// <summary>
-    /// Add a person to the queue
-    /// </summary>
-    /// <param name="person">The person to add</param>
+    public bool IsEmpty() => _queue.Count == 0;
+
+    // Enqueue: add to the back
     public void Enqueue(Person person)
     {
-        _queue.Insert(0, person);
+        _queue.Add(person);
     }
 
+    // Dequeue: remove from the front
     public Person Dequeue()
     {
         var person = _queue[0];
         _queue.RemoveAt(0);
         return person;
-    }
-
-    public bool IsEmpty()
-    {
-        return Length == 0;
     }
 
     public override string ToString()
