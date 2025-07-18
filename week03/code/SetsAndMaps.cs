@@ -1,5 +1,8 @@
 using System.Text.Json;
-
+using System.IO;
+using System.Net.Http;
+using System.Collections.Generic;
+using System.Diagnostics;
 public static class SetsAndMaps
 {
     /// <summary>
@@ -21,8 +24,27 @@ public static class SetsAndMaps
     /// <param name="words">An array of 2-character words (lowercase, no duplicates)</param>
     public static string[] FindPairs(string[] words)
     {
-        // TODO Problem 1 - ADD YOUR CODE HERE
-        return [];
+        var seen = new HashSet<string>();
+        var result = new List<string>();
+
+        foreach (var w in words)
+        {
+            var rev = new string(new[] { w[1], w[0] });
+            // skip palindromes
+            if (w[0] == w[1]) continue;
+
+            if (seen.Contains(rev))
+            {
+                // w is the reversed version, so format "w & rev"
+                result.Add($"{w} & {rev}");
+            }
+            else
+            {
+                seen.Add(w);
+            }
+        }
+
+        return result.ToArray();
     }
 
     /// <summary>
@@ -39,14 +61,21 @@ public static class SetsAndMaps
     public static Dictionary<string, int> SummarizeDegrees(string filename)
     {
         var degrees = new Dictionary<string, int>();
+
         foreach (var line in File.ReadLines(filename))
         {
-            var fields = line.Split(",");
-            // TODO Problem 2 - ADD YOUR CODE HERE
+            var fields = line.Split(',');
+            if (fields.Length < 4) continue;
+            var deg = fields[3].Trim();
+            if (degrees.ContainsKey(deg))
+                degrees[deg]++;
+            else
+                degrees[deg] = 1;
         }
 
         return degrees;
     }
+
 
     /// <summary>
     /// Determine if 'word1' and 'word2' are anagrams.  An anagram
@@ -66,8 +95,26 @@ public static class SetsAndMaps
     /// </summary>
     public static bool IsAnagram(string word1, string word2)
     {
-        // TODO Problem 3 - ADD YOUR CODE HERE
-        return false;
+        // normalize: remove spaces, to lowercase
+        var a = word1.Replace(" ", "").ToLowerInvariant();
+        var b = word2.Replace(" ", "").ToLowerInvariant();
+
+        if (a.Length != b.Length) return false;
+
+        var counts = new Dictionary<char, int>();
+        foreach (var c in a)
+        {
+            counts[c] = counts.TryGetValue(c, out var cnt) ? cnt + 1 : 1;
+        }
+
+        foreach (var c in b)
+        {
+            if (!counts.TryGetValue(c, out var cnt) || cnt == 0)
+                return false;
+            counts[c] = cnt - 1;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -84,23 +131,32 @@ public static class SetsAndMaps
     /// https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
     /// 
     /// </summary>
-    public static string[] EarthquakeDailySummary()
+ public static string[] EarthquakeDailySummary()
+{
+    const string uri = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson";
+
+    using var client = new HttpClient();
+    using var stream = client.GetStreamAsync(uri).Result;
+
+    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+    var featureCollection = JsonSerializer.Deserialize<FeatureCollection>(stream, options);
+
+    var summary = new List<string>();
+
+    if (featureCollection?.Features != null)
     {
-        const string uri = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson";
-        using var client = new HttpClient();
-        using var getRequestMessage = new HttpRequestMessage(HttpMethod.Get, uri);
-        using var jsonStream = client.Send(getRequestMessage).Content.ReadAsStream();
-        using var reader = new StreamReader(jsonStream);
-        var json = reader.ReadToEnd();
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        foreach (var feature in featureCollection.Features)
+        {
+            var place = feature?.Properties?.Place;
+            var magnitude = feature?.Properties?.Magnitude;
 
-        var featureCollection = JsonSerializer.Deserialize<FeatureCollection>(json, options);
-
-        // TODO Problem 5:
-        // 1. Add code in FeatureCollection.cs to describe the JSON using classes and properties 
-        // on those classes so that the call to Deserialize above works properly.
-        // 2. Add code below to create a string out each place a earthquake has happened today and its magitude.
-        // 3. Return an array of these string descriptions.
-        return [];
+            if (!string.IsNullOrWhiteSpace(place) && magnitude.HasValue)
+            {
+                summary.Add($"{place} - Mag {magnitude.Value:F2}");
+            }
+        }
     }
+
+    return summary.ToArray();
+}
 }
